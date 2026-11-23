@@ -1,0 +1,97 @@
+# --------------------------------------------------------------------------
+# raven-ai-humor — configuration
+# --------------------------------------------------------------------------
+
+# Source des tweets : twitterapi_io (recommandé, ~0,15 $ / 1 000 tweets)
+# ou x_official (API officielle X, ~0,005 $ par post lu). La variable
+# d'environnement TWEET_SOURCE, si elle est définie, l'emporte.
+source: twitterapi_io
+
+window_hours: 48                  # ancienneté maximale des tweets retenus
+incremental_overlap_minutes: 30   # recouvrement entre deux passages (requêtes "Latest")
+exclude_replies: false
+
+# Ajouté aux recherches thématiques ("" pour toutes les langues)
+language_filter: "(lang:fr OR lang:en)"
+
+# Opérateurs portables entre les deux sources : OR, guillemets, parenthèses,
+# -mot, lang:, from:. (min_faves: ne marche qu'avec twitterapi_io.)
+# query_type : Top = tweets populaires de la fenêtre ; Latest = plus récents.
+topic_queries:
+  - label: assistants
+    query: 'ChatGPT OR Claude OR Gemini OR Grok OR Copilot OR "Le Chat" OR Mistral'
+    query_type: Top
+    max_pages: 3
+  - label: agents
+    query: '"agent IA" OR "agents IA" OR "AI agent" OR "AI agents" OR agentic OR "vibe coding"'
+    query_type: Top
+    max_pages: 2
+  - label: robots
+    query: 'robot OR robots OR humanoïde OR humanoid OR Optimus OR Unitree OR "Boston Dynamics"'
+    query_type: Top
+    max_pages: 2
+  - label: ia_generale
+    query: '"intelligence artificielle" OR IA OR AI OR LLM OR AGI'
+    query_type: Top
+    max_pages: 3
+  - label: signaux_humour
+    query: '(IA OR AI OR ChatGPT OR Claude OR Gemini OR robot) (😭 OR 💀 OR 😂 OR lmao OR mdr OR ptdr)'
+    query_type: Latest
+    max_pages: 5
+
+# Registre des comptes dont l'avatar a été reconnu comme Raven : on surveille
+# TOUS leurs tweets récents (pas de mots-clés) et le modèle juge si le sujet
+# est l'IA / la tech. C'est la principale source de résultats.
+registry:
+  enabled: true
+  query_type: Latest
+  max_pages_per_chunk: 2
+  seed_usernames: []    # comptes déjà connus, ex. ["compte1", "compte2"] (vérifiés à leur premier tweet)
+
+# Découverte de nouveaux comptes Raven (fans de Teen Titans), une fois par jour.
+discovery:
+  enabled: true
+  every_hours: 24
+  tweet_queries:
+    - label: teen_titans
+      query: '"Teen Titans" OR "teen titans go" OR #TeenTitans OR #Raven OR "Rachel Roth"'
+      query_type: Top
+      max_pages: 5
+  user_queries: ["raven", "teen titans", "raven roth"]   # twitterapi_io uniquement
+  user_pages: 2
+
+vision:
+  model: claude-haiku-5-5
+  threshold: 0.75          # confiance minimale pour accepter un avatar Raven
+  workers: 6
+  max_checks_per_run: 800  # garde-fou de coût
+  recheck_after_days: 60
+
+humor:
+  model: claude-haiku-5-5
+  batch_size: 8
+  include_media: true      # envoie la 1re image du tweet (memes)
+  min_score: 6.5           # note finale minimale (0-10)
+  engagement_bonus_max: 1.0
+  top_n: 10                # nombre max de résultats par rapport
+
+limits:
+  max_tweets_per_run: 1500   # garde-fou de coût côté source
+
+retention:
+  tweets_days: 14
+  avatars_days: 90
+
+twitterapi_io:
+  min_interval_s: 0.0      # mettez 5 si votre compte est limité en requêtes/s
+
+x_official:
+  page_size: 50            # 10-100 ; chaque post renvoyé est facturé
+
+pricing:                   # $ par million de tokens (estimation affichée en fin de passage)
+  input: 0.10
+  output: 0.50
+
+paths:
+  db: data/raven.sqlite
+  reports: reports

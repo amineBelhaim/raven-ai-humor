@@ -1,0 +1,12 @@
+[Unit]
+Description=raven-ai-humor : tweets IA drôles de comptes avatar Raven
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=raven
+WorkingDirectory=/opt/raven-ai-humor
+EnvironmentFile=/opt/raven-ai-humor/.env
+ExecStart=/opt/raven-ai-humor/.venv/bin/python raven_humor.py --config config.yaml
+TimeoutStartSec=30min
