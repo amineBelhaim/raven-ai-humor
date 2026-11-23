@@ -1,0 +1,15 @@
+{
+  "fetched": 236,
+  "new": 195,
+  "duplicates": 0,
+  "raven_tweets": 0,
+  "reported": 0,
+  "llm_calls": 182,
+  "llm_cost_usd": 0.0433,
+  "report": null,
+  "at": "2026-11-23T13:47:24.991639+00:00",
+  "query_errors": [
+    "assistants: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 503: {\"detail\":\"This search couldn't be completed right now. Please retry in a few seconds. You were not charged.\"}",
+    "registry_0: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 503: {\"detail\":\"This search couldn't be completed right now. Please retry in a few seconds. You were not charged.\"}"
+  ]
+}
