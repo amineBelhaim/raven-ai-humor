@@ -120,4 +120,4 @@ Réduisez alors fortement `max_pages` et `x_official.page_size`. La recherche d'
   relève des conditions de X. Le basculement vers l'API officielle tient en une variable.
 - **Vision** : les avatars très stylisés ou minuscules peuvent tromper le modèle. Consultez la table `avatars` de la base
   SQLite (colonne `reason`) pour ajuster le seuil.
-- L'humour est subjectif : la note est un tri, pas une vérité. Les tweets promotionnels et haineux sont exclus.
+- L'humour est subjectif : la note est un tri, pas une vérité. Les tweets promotionnels, haineux et NSFW sont exclus.

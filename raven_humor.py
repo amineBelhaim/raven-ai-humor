@@ -175,7 +175,7 @@ def cfg_get(cfg: dict, dotted: str, default=None):
 
 
 def http_get(session: requests.Session, url: str, *, params=None, headers=None,
-             timeout: int = 30, retries: int = 4) -> requests.Response:
+             timeout: int = 30, retries: int = 6) -> requests.Response:
     """GET avec back-off sur 429/5xx. Lève RuntimeError sur les autres erreurs."""
     last_error = ""
     for attempt in range(retries):
@@ -190,7 +190,7 @@ def http_get(session: requests.Session, url: str, *, params=None, headers=None,
         last_error = f"HTTP {r.status_code}: {r.text[:300]}"
         if r.status_code not in (429, 500, 502, 503, 504):
             break
-        wait = 2 * 2 ** attempt
+        wait = max(6, 2 * 2 ** attempt) if r.status_code == 429 else 2 * 2 ** attempt
         reset = r.headers.get("x-rate-limit-reset")
         retry_after = r.headers.get("retry-after")
         if reset and reset.isdigit():
@@ -616,6 +616,7 @@ Pour chaque tweet :
 - originality (0-10) : pénalise les blagues recyclées, les formats usés, le copier-coller.
 - humor_types : les registres présents.
 - is_promo_or_spam : promotion, appât à engagement, thread commercial, airdrop, etc.
+- is_nsfw : contenu sexuel ou explicite (texte ou image).
 - is_hateful : humour qui vise des personnes pour leur origine, religion, genre, orientation, handicap, etc.
 - reason : une phrase en français qui explique la note.
 Ne renvoie que les IDs fournis. Réponds uniquement via l'outil report_scores."""
@@ -638,10 +639,11 @@ HUMOR_TOOL = {
                         "humor_types": {"type": "array", "items": {"type": "string", "enum": HUMOR_TYPES}},
                         "is_promo_or_spam": {"type": "boolean"},
                         "is_hateful": {"type": "boolean"},
+                        "is_nsfw": {"type": "boolean"},
                         "reason": {"type": "string"},
                     },
                     "required": ["id", "on_topic", "humor_score", "originality", "humor_types",
-                                 "is_promo_or_spam", "is_hateful", "reason"],
+                                 "is_promo_or_spam", "is_hateful", "is_nsfw", "reason"],
                 },
             }
         },
@@ -818,6 +820,7 @@ class Collector:
         self.tweets: dict[str, Tweet] = {}
         self.extra_authors: list[Author] = []
         self.fetched = 0
+        self.errors: list[str] = []
 
     def _since(self, label: str, incremental: bool) -> datetime:
         last = parse_time(self.store.get_state(f"last_run:{label}")) if incremental else None
@@ -840,6 +843,7 @@ class Collector:
             self.store.set_state(f"last_run:{label}", self.now.isoformat())
         except Exception as e:  # noqa: BLE001 — une requête en échec ne bloque pas les autres
             log.error("Requête %s en échec : %s", label, e)
+            self.errors.append(f"{label}: {str(e)[:300]}")
         log.info("  %-22s %4d tweets", label, n)
 
     def collect(self):
@@ -873,6 +877,7 @@ class Collector:
                     log.info("  utilisateurs « %s » : %d", uq, len(found))
                 except Exception as e:  # noqa: BLE001
                     log.error("Recherche d'utilisateurs « %s » en échec : %s", uq, e)
+                    self.errors.append(f"users:{uq}: {str(e)[:300]}")
             self.store.set_state("last_discovery", self.now.isoformat())
 
     def _discovery_due(self) -> bool:
@@ -945,7 +950,8 @@ def run_once(cfg: dict, store: Store, source: TweetSource, llm: LLM) -> dict:
         if s is None:
             continue  # retenté au prochain passage
         v = verdicts[t.author.avatar_url]
-        excluded = s.get("is_promo_or_spam") or s.get("is_hateful")
+        excluded = s.get("is_promo_or_spam") or s.get("is_hateful") or \
+            (s.get("is_nsfw") and cfg_get(cfg, "humor.exclude_nsfw", True))
         store.save_tweet(t, status="excluded" if excluded else "scored", verdict=v, score=s,
                          final_score=None if excluded else final_score(t, s, bonus_max))
     store.commit()
@@ -962,6 +968,9 @@ def run_once(cfg: dict, store: Store, source: TweetSource, llm: LLM) -> dict:
     summary = {"fetched": collector.fetched, "new": len(candidates), "duplicates": dupes,
                "raven_tweets": len(raven_tweets), "reported": len(rows), "llm_calls": llm.calls,
                "llm_cost_usd": round(llm.cost_usd(), 4), "report": str(report_path) if report_path else None}
+    summary |= {"at": now.isoformat(), "query_errors": collector.errors}
+    out_dir = Path(cfg_get(cfg, "paths.reports", "reports"))
+    (out_dir / "last_run.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     log.info("Résumé : %s", json.dumps(summary, ensure_ascii=False))
     return summary
 

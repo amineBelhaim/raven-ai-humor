@@ -74,6 +74,7 @@ humor:
   min_score: 6.5           # note finale minimale (0-10)
   engagement_bonus_max: 1.0
   top_n: 10                # nombre max de résultats par rapport
+  exclude_nsfw: true       # écarte les tweets à caractère sexuel
 
 limits:
   max_tweets_per_run: 1500   # garde-fou de coût côté source
@@ -83,7 +84,7 @@ retention:
   avatars_days: 90
 
 twitterapi_io:
-  min_interval_s: 0.0      # mettez 5 si votre compte est limité en requêtes/s
+  min_interval_s: 5.5      # offre gratuite / faible crédit : ~1 requête toutes les 5 s
 
 x_official:
   page_size: 50            # 10-100 ; chaque post renvoyé est facturé
