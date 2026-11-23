@@ -97,14 +97,15 @@ paths:
   db: data/raven.sqlite
   reports: reports
 
-# Mode chasse (python raven_humor.py --hunt) : retrouver un tweet viral sur l'IA / les robots
-# publié par un petit compte. Résultat dans reports/hunt.md. min_faves : twitterapi_io uniquement.
+# Mode chasse (python raven_humor.py --hunt) : retrouver un tweet sur l'IA / les robots publié
+# par un petit compte à avatar Raven, sans critère d'humour. Résultat : reports/hunt.md.
 hunt:
-  days: 14
-  min_faves: 300
-  max_followers: 100
-  max_pages: 5
+  days: 31
+  min_faves: 100               # likes minimum (twitterapi_io uniquement)
+  max_followers: 100           # « petit compte »
+  avatar_check_max_followers: 1000   # marge : le compte a pu gagner des abonnés depuis
+  max_avatar_checks: 3000
+  query_type: Latest           # parcourt TOUS les tweets ≥ min_faves de la période
+  max_pages: 300               # 20 tweets/page, ~5 s par page en offre gratuite
   queries:
-    - 'robot OR robots OR humanoïde OR humanoid OR Optimus OR Unitree OR "Boston Dynamics"'
-    - '"intelligence artificielle" OR IA OR AI OR ChatGPT OR Claude OR Gemini OR Grok'
-    - '"agent IA" OR "agents IA" OR "AI agent" OR "AI agents" OR LLM OR AGI'
+    - '(IA OR AI OR "intelligence artificielle" OR robot OR robots OR humanoïde OR humanoïdes OR ChatGPT OR Claude OR Gemini OR Grok OR Mistral OR LLM OR AGI OR "agent IA" OR "agents IA") lang:fr'

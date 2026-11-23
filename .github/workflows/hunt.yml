@@ -10,13 +10,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: raven-hunt
+  group: raven-ai-humor        # partage la limite de requêtes : jamais en parallèle du passage principal
   cancel-in-progress: false
 
 jobs:
   hunt:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -4,9 +4,6 @@ on:
   schedule:
     - cron: "17 */6 * * *"   # toutes les 6 h (UTC). GitHub peut décaler les passages.
   workflow_dispatch: {}       # bouton "Run workflow" pour lancer à la main
-  push:                       # relance automatique quand le code ou la config change
-    branches: [main]
-    paths: [raven_humor.py, config.yaml, requirements.txt, .github/workflows/raven.yml]
 
 permissions:
   contents: write             # pour committer la base SQLite et les rapports

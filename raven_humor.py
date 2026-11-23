@@ -175,7 +175,7 @@ def cfg_get(cfg: dict, dotted: str, default=None):
 
 
 def http_get(session: requests.Session, url: str, *, params=None, headers=None,
-             timeout: int = 30, retries: int = 6) -> requests.Response:
+             timeout: int = 30, retries: int = 8) -> requests.Response:
     """GET avec back-off sur 429/5xx. Lève RuntimeError sur les autres erreurs."""
     last_error = ""
     for attempt in range(retries):
@@ -190,7 +190,7 @@ def http_get(session: requests.Session, url: str, *, params=None, headers=None,
         last_error = f"HTTP {r.status_code}: {r.text[:300]}"
         if r.status_code not in (429, 500, 502, 503, 504):
             break
-        wait = max(6, 2 * 2 ** attempt) if r.status_code == 429 else 2 * 2 ** attempt
+        wait = min(60, max(6, 2 * 2 ** attempt)) if r.status_code in (429, 503) else 2 * 2 ** attempt
         reset = r.headers.get("x-rate-limit-reset")
         retry_after = r.headers.get("retry-after")
         if reset and reset.isdigit():
@@ -1065,7 +1065,8 @@ def run_hunt(cfg: dict, store: Store, source: TweetSource, llm: LLM) -> dict:
         query = f"({q}) min_faves:{min_faves}"
         n = 0
         try:
-            for tw in source.search(query, since=since, query_type="Top", max_pages=int(h.get("max_pages", 5))):
+            for tw in source.search(query, since=since, query_type=h.get("query_type", "Latest"),
+                                    max_pages=int(h.get("max_pages", 40))):
                 n += 1
                 tweets.setdefault(tw.id, tw)
         except Exception as e:  # noqa: BLE001
@@ -1073,31 +1074,47 @@ def run_hunt(cfg: dict, store: Store, source: TweetSource, llm: LLM) -> dict:
             log.error("Chasse « %s » en échec : %s", q, e)
         log.info("  chasse %-40s %4d tweets", q[:40], n)
 
-    small = [t for t in tweets.values() if t.author.followers <= max_followers]
-    log.info("%d tweets viraux, dont %d de comptes ≤ %d abonnés", len(tweets), len(small), max_followers)
+    check_max = int(h.get("avatar_check_max_followers", max_followers))
+    to_check = [t for t in tweets.values() if t.author.followers <= check_max]
+    small = [t for t in to_check if t.author.followers <= max_followers]
+    log.info("%d tweets examinés, %d de comptes ≤ %d abonnés (avatars vérifiés jusqu'à %d)",
+             len(tweets), len(small), max_followers, check_max)
     det = RavenDetector(llm, store, cfg)
-    verdicts = det.classify_urls([t.author.avatar_url for t in small])
-    small.sort(key=lambda t: (not (verdicts.get(t.author.avatar_url) or AvatarVerdict(False, 0)).accepted(det.threshold),
-                              -t.likes))
-    lines = [f"# Chasse : tweets viraux de petits comptes (≤ {max_followers} abonnés)",
-             f"_{now:%Y-%m-%d %H:%M} UTC · {h.get('days', 14)} derniers jours · ≥ {min_faves} likes · "
-             f"{len(tweets)} tweets viraux examinés, {len(small)} de petits comptes_", ""]
-    for t in small:
+    det.max_checks = int(h.get("max_avatar_checks", 3000))
+    verdicts = det.classify_urls([t.author.avatar_url for t in to_check])
+
+    def is_raven(t):
         v = verdicts.get(t.author.avatar_url)
-        tag = "🟣 AVATAR RAVEN" if v and v.accepted(det.threshold) else ("avatar non vérifié" if v is None else "pas Raven")
-        conf = f" ({v.confidence:.2f})" if v else ""
-        lines += [f"## {tag}{conf} — @{t.author.username} · {t.author.followers} abonnés",
-                  "\n".join("> " + ln for ln in t.text.splitlines() or [""]), "",
-                  f"- ❤️ {t.likes} · 🔁 {t.retweets} · 👁 {t.views} · {t.created_at:%Y-%m-%d %H:%M} UTC",
-                  f"- 🔗 {t.url}", ""]
+        return bool(v and v.accepted(det.threshold))
+
+    raven = sorted([t for t in to_check if is_raven(t)], key=lambda t: (t.author.followers > max_followers, -t.likes))
+    others = sorted([t for t in small if not is_raven(t)], key=lambda t: -t.likes)[: int(h.get("list_others", 30))]
+    lines = ["# Chasse : tweets IA / robots, avatar Raven, petits comptes",
+             f"_{now:%Y-%m-%d %H:%M} UTC · {h.get('days', 14)} derniers jours · ≥ {min_faves} likes · "
+             f"{len(tweets)} tweets examinés · {len(small)} de comptes ≤ {max_followers} abonnés · "
+             f"{len(raven)} avec avatar Raven_", ""]
+
+    def block(t, tag):
+        return [f"## {tag} — @{t.author.username} · {t.author.followers} abonnés",
+                "\n".join("> " + ln for ln in t.text.splitlines() or [""]), "",
+                f"- ❤️ {t.likes} · 🔁 {t.retweets} · 👁 {t.views} · {t.created_at:%Y-%m-%d %H:%M} UTC",
+                f"- 🔗 {t.url}", ""]
+
+    lines.append("# 🟣 Avatar Raven" if raven else "# 🟣 Avatar Raven : aucun trouvé")
+    for t in raven:
+        v = verdicts[t.author.avatar_url]
+        lines += block(t, f"Raven {v.confidence:.2f} ({v.variant})")
+    lines.append(f"# Autres petits comptes (≤ {max_followers} abonnés), pour contrôle")
+    for t in others:
+        v = verdicts.get(t.author.avatar_url)
+        lines += block(t, "avatar non vérifié" if v is None else f"pas Raven : {v.reason[:80]}")
     if errors:
         lines += ["## Erreurs", *[f"- {e}" for e in errors]]
     out = Path(cfg_get(cfg, "paths.reports", "reports"))
     out.mkdir(parents=True, exist_ok=True)
     (out / "hunt.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     store.commit()
-    summary = {"viral": len(tweets), "small_accounts": len(small),
-               "raven": sum(1 for t in small if (verdicts.get(t.author.avatar_url) or AvatarVerdict(False, 0)).accepted(det.threshold)),
+    summary = {"viral": len(tweets), "small_accounts": len(small), "raven": len(raven),
                "errors": errors, "llm_cost_usd": round(llm.cost_usd(), 4)}
     log.info("Chasse : %s", json.dumps(summary, ensure_ascii=False))
     return summary
