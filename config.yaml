@@ -96,3 +96,15 @@ pricing:                   # $ par million de tokens (estimation affichée en fi
 paths:
   db: data/raven.sqlite
   reports: reports
+
+# Mode chasse (python raven_humor.py --hunt) : retrouver un tweet viral sur l'IA / les robots
+# publié par un petit compte. Résultat dans reports/hunt.md. min_faves : twitterapi_io uniquement.
+hunt:
+  days: 14
+  min_faves: 300
+  max_followers: 100
+  max_pages: 5
+  queries:
+    - 'robot OR robots OR humanoïde OR humanoid OR Optimus OR Unitree OR "Boston Dynamics"'
+    - '"intelligence artificielle" OR IA OR AI OR ChatGPT OR Claude OR Gemini OR Grok'
+    - '"agent IA" OR "agents IA" OR "AI agent" OR "AI agents" OR LLM OR AGI'

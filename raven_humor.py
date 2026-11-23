@@ -1051,6 +1051,59 @@ def notify(rows: list):
 
 
 # --------------------------------------------------------------------------- #
+# Mode « chasse » : retrouver un tweet viral précis venant d'un petit compte Raven
+# --------------------------------------------------------------------------- #
+def run_hunt(cfg: dict, store: Store, source: TweetSource, llm: LLM) -> dict:
+    h = cfg.get("hunt") or {}
+    now = now_utc()
+    since = now - timedelta(days=float(h.get("days", 14)))
+    min_faves = int(h.get("min_faves", 300))
+    max_followers = int(h.get("max_followers", 100))
+    tweets: dict[str, Tweet] = {}
+    errors = []
+    for q in h.get("queries") or []:
+        query = f"({q}) min_faves:{min_faves}"
+        n = 0
+        try:
+            for tw in source.search(query, since=since, query_type="Top", max_pages=int(h.get("max_pages", 5))):
+                n += 1
+                tweets.setdefault(tw.id, tw)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{q[:40]}: {str(e)[:200]}")
+            log.error("Chasse « %s » en échec : %s", q, e)
+        log.info("  chasse %-40s %4d tweets", q[:40], n)
+
+    small = [t for t in tweets.values() if t.author.followers <= max_followers]
+    log.info("%d tweets viraux, dont %d de comptes ≤ %d abonnés", len(tweets), len(small), max_followers)
+    det = RavenDetector(llm, store, cfg)
+    verdicts = det.classify_urls([t.author.avatar_url for t in small])
+    small.sort(key=lambda t: (not (verdicts.get(t.author.avatar_url) or AvatarVerdict(False, 0)).accepted(det.threshold),
+                              -t.likes))
+    lines = [f"# Chasse : tweets viraux de petits comptes (≤ {max_followers} abonnés)",
+             f"_{now:%Y-%m-%d %H:%M} UTC · {h.get('days', 14)} derniers jours · ≥ {min_faves} likes · "
+             f"{len(tweets)} tweets viraux examinés, {len(small)} de petits comptes_", ""]
+    for t in small:
+        v = verdicts.get(t.author.avatar_url)
+        tag = "🟣 AVATAR RAVEN" if v and v.accepted(det.threshold) else ("avatar non vérifié" if v is None else "pas Raven")
+        conf = f" ({v.confidence:.2f})" if v else ""
+        lines += [f"## {tag}{conf} — @{t.author.username} · {t.author.followers} abonnés",
+                  "\n".join("> " + ln for ln in t.text.splitlines() or [""]), "",
+                  f"- ❤️ {t.likes} · 🔁 {t.retweets} · 👁 {t.views} · {t.created_at:%Y-%m-%d %H:%M} UTC",
+                  f"- 🔗 {t.url}", ""]
+    if errors:
+        lines += ["## Erreurs", *[f"- {e}" for e in errors]]
+    out = Path(cfg_get(cfg, "paths.reports", "reports"))
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "hunt.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    store.commit()
+    summary = {"viral": len(tweets), "small_accounts": len(small),
+               "raven": sum(1 for t in small if (verdicts.get(t.author.avatar_url) or AvatarVerdict(False, 0)).accepted(det.threshold)),
+               "errors": errors, "llm_cost_usd": round(llm.cost_usd(), 4)}
+    log.info("Chasse : %s", json.dumps(summary, ensure_ascii=False))
+    return summary
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 def main(argv: list[str] | None = None) -> int:
@@ -1059,6 +1112,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--loop", action="store_true", help="tourne en boucle (sans cron)")
     ap.add_argument("--every", type=int, default=360, help="minutes entre deux passages avec --loop")
     ap.add_argument("--check-avatar", metavar="URL", help="teste la détection de Raven sur une image")
+    ap.add_argument("--hunt", action="store_true", help="mode chasse (section hunt de la config)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
 
@@ -1081,6 +1135,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     source = build_source(cfg)
+    if args.hunt:
+        run_hunt(cfg, store, source, llm)
+        return 0
     while True:
         try:
             run_once(cfg, store, source, llm)

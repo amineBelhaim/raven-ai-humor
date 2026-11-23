@@ -1,0 +1,42 @@
+name: raven-hunt
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [hunt.trigger]       # modifier ce fichier relance une chasse
+
+permissions:
+  contents: write
+
+concurrency:
+  group: raven-hunt
+  cancel-in-progress: false
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Chasse au tweet viral
+        env:
+          TWEET_SOURCE: twitterapi_io
+          TWITTERAPI_IO_KEY: ${{ secrets.TWITTERAPI_IO_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python raven_humor.py --config config.yaml --hunt
+      - name: Sauvegarde
+        if: always()
+        run: |
+          git config user.name "raven-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -- data || true          # la base reste gérée par le workflow principal
+          git add reports/hunt.md || true
+          git diff --cached --quiet || git commit -m "chasse $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase --autostash || true
+          git push
