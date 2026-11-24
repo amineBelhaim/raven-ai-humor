@@ -1,15 +1,19 @@
 {
-  "fetched": 236,
-  "new": 195,
+  "fetched": 0,
+  "new": 0,
   "duplicates": 0,
   "raven_tweets": 0,
   "reported": 0,
-  "llm_calls": 182,
-  "llm_cost_usd": 0.0433,
+  "llm_calls": 0,
+  "llm_cost_usd": 0.0,
   "report": null,
-  "at": "2026-11-23T13:47:24.991639+00:00",
+  "at": "2026-11-24T03:58:44.567462+00:00",
   "query_errors": [
-    "assistants: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 503: {\"detail\":\"This search couldn't be completed right now. Please retry in a few seconds. You were not charged.\"}",
-    "registry_0: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 503: {\"detail\":\"This search couldn't be completed right now. Please retry in a few seconds. You were not charged.\"}"
+    "assistants: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
+    "agents: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
+    "robots: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
+    "ia_generale: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
+    "signaux_humour: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
+    "registry_0: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi"
   ]
 }
