@@ -7,7 +7,7 @@
   "llm_calls": 0,
   "llm_cost_usd": 0.0,
   "report": null,
-  "at": "2026-11-25T02:33:01.705228+00:00",
+  "at": "2026-11-25T17:18:43.485315+00:00",
   "query_errors": [
     "assistants: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
     "agents: Échec GET https://api.twitterapi.io/twitter/tweet/advanced_search : HTTP 402: {\"error\":\"Unauthorized\",\"message\":\"Credits is not enough.Please recharge at https://twitterapi.io/payment (sign in with the account that owns this API key and add credits; your API key stays the same). Pricing: https://twi",
